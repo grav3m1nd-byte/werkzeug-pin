@@ -43,7 +43,7 @@ probably_public_bits = [
 private_bits = [
     get_node,
     get_machine_id
-]
+    ]
 
 h = hashlib.md5()
 for bit in chain(probably_public_bits, private_bits):
