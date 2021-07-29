@@ -168,6 +168,12 @@ get_machine_id = subprocess.check_output(idcmd.strip(), shell=True, text=True)
 * get_node -> will execute the OS command and retrieve the output which is the MAC Address of the interface listening, to then strip any potential trailing newlines that were not remove by ```tr -d '\n'```. Then it will cast the string output to a decimal interger by specifying its base as hexadecimal. This corresponds to ```uuid.getnode() -> /sys/class/net/<interface>/address```.
 * get_machine_id -> will execute the OS command and retrieve the output which in this case is the machine-id. This corresponds to ```get_machine_id() -> /etc/machine-id```.
 
+The interfaces on the server hosting Werkzeug can be retrieved by using something like:
+
+```shell
+curl -sX GET --url 'http://10.10.10.10:5000/file?filename=../../../../../proc/self/net/dev' -u 'user:password123' | grep -E '^\s*ens*|^\s*eth*'
+```
+
 The following are the variables mentioned which now use the specific variables such as werk_user, get_node, and get_machine_id.
 
 ```python
