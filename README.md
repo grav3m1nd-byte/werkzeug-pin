@@ -1,4 +1,4 @@
-# Werkzeug Console Pin
+# Werkzeug Console Pin Exploit
 Yet another Werkzeug Console Pin Exploit Explanation.
 
 ## Description
