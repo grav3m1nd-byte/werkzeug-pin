@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import requests
-import hashlib
+from requests import request
+from hashlib import md5
 from base64 import b64encode
 from itertools import chain
 
@@ -25,13 +25,13 @@ headers = {
         PASSWD).encode('UTF-8')).decode('ascii'))
 }
 
-get_node = str(int(requests.request(
+get_node = str(int(request(
     "GET",
     url + mac_path,
     headers=headers,
     data=payload).text.strip().replace(':', ''), base=16))
 
-get_machine_id = requests.request(
+get_machine_id = request(
     "GET",
     url + id_path,
     headers=headers,
@@ -57,7 +57,7 @@ private_bits = [
     get_machine_id
     ]
 
-h = hashlib.md5()
+h = md5()
 for bit in chain(probably_public_bits, private_bits):
     if not bit:
         continue
