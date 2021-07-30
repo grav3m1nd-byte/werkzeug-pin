@@ -19,6 +19,7 @@ These exploits were developed after reviewing [Werkzeug source code repo](https:
 
 The following is the function that generates the pin in Werkzeug from __init__.py.
 
+
 ```python
 def get_pin_and_cookie_name(app):
     pin = os.environ.get('WERKZEUG_DEBUG_PIN')
